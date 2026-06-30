@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Hero — Seed Demo Data</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: #08091a;
+      color: #f1f3f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 640px;
+      width: 100%;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    .sub { color: #a0aec0; font-size:0.9rem; margin-bottom:28px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #6c63ff, #4f46e5);
+      color: #fff; border: none; border-radius: 100px;
+      font-family: Inter, sans-serif; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+      margin-bottom: 8px; width: 100%; justify-content: center;
+    }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn.danger { background: linear-gradient(135deg, #ff6b6b, #e03131); }
+    #log {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: #a0aec0;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 20px;
+      min-height: 80px;
+    }
+    .log-line { padding: 2px 0; }
+    .log-ok   { color: #51cf66; }
+    .log-err  { color: #ff6b6b; }
+    .log-info { color: #4dabf7; }
+    .warn-box {
+      background: rgba(255,212,59,0.1);
+      border: 1px solid rgba(255,212,59,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #ffd43b;
+      margin-bottom: 20px;
+    }
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+    .stat { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 12px; text-align: center; }
+    .stat-v { font-size: 1.5rem; font-weight: 800; color: #6c63ff; }
+    .stat-l { font-size: 0.75rem; color: #a0aec0; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div style="font-size:2.5rem;margin-bottom:12px">🌱</div>
+  <h1>Seed Demo Data</h1>
+  <p class="sub">Populate your Firestore database with the 6 demo issues, mock users, activity log, and initial stats. Run this once after setting up Firebase.</p>
+
+  <div class="warn-box">
+    ⚠️ Make sure you have configured <code>js/firebase-config.js</code> with your Firebase credentials before seeding. See <strong>SETUP.md</strong> for instructions.
+  </div>
+
+  <div class="stats" id="stats-display" style="display:none">
+    <div class="stat"><div class="stat-v" id="s-issues">0</div><div class="stat-l">Issues</div></div>
+    <div class="stat"><div class="stat-v" id="s-users">0</div><div class="stat-l">Users</div></div>
+    <div class="stat"><div class="stat-v" id="s-acts">0</div><div class="stat-l">Activities</div></div>
+  </div>
+
+  <button class="btn" id="seed-btn" onclick="runSeed()">🌱 Seed All Demo Data</button>
+  <button class="btn danger" id="clear-btn" onclick="clearData()" style="background:rgba(255,107,107,0.2);color:#ff6b6b;border:1px solid rgba(255,107,107,0.3)">🗑️ Clear All Data (Danger!)</button>
+
+  <div style="margin-top:16px;text-align:center">
+    <a href="index.html" style="color:#6c63ff;font-size:0.85rem">← Back to App</a>
+  </div>
+
+  <div id="log">Ready — click "Seed All Demo Data" to begin…</div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/data.js"></script>
+
+<script>
+const logEl = document.getElementById('log');
+function log(msg, type = '') {
+  const d = document.createElement('div');
+  d.className = 'log-line ' + type;
+  d.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function runSeed() {
+  if (!window.FIREBASE_CONFIGURED) {
+    alert('Firebase is not configured!\n\nEdit js/firebase-config.js with your project credentials.\nSee SETUP.md for instructions.');
+    return;
+  }
+
+  document.getElementById('seed-btn').disabled = true;
+  logEl.innerHTML = '';
+  log('Starting seed…', 'log-info');
+
+  const db = window.db;
+  const { ISSUES_DATA, USERS_DATA, ACTIVITY_FEED, CATEGORIES } = window.AppData;
+
+  let issueCount = 0, userCount = 0, actCount = 0;
+
+  // ── Seed Issues ──
+  log('Seeding issues…', 'log-info');
+  const batch1 = db.batch();
+  for (const issue of ISSUES_DATA) {
+    const ref = db.collection('issues').doc(issue.id);
+    const existing = await ref.get();
+    if (existing.exists) { log(`  Skip issue ${issue.id} (already exists)`); continue; }
+    batch1.set(ref, {
+      ...issue,
+      upvotes:       issue.upvotes || 0,
+      verifications: issue.verifications || 0,
+      mediaUrls:     [],
+      reportedBy:    'seed',
+      reporterName:  issue.reporter?.name || 'Demo User',
+      reporterLevel: issue.reporter?.level || 1,
+      reportedAt:    issue.reportedAt || new Date().toISOString(),
+      createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    issueCount++;
+    log(`  ✓ Issue: ${issue.id} — ${issue.title.substring(0,40)}`,'log-ok');
+  }
+  await batch1.commit();
+  log(`Seeded ${issueCount} issues.`, 'log-ok');
+
+  // ── Seed Stats ──
+  log('Computing stats…', 'log-info');
+  const byCategory = {}, byStatus = {};
+  ISSUES_DATA.forEach(i => {
+    byCategory[i.category] = (byCategory[i.category] || 0) + 1;
+    byStatus[i.status]     = (byStatus[i.status]     || 0) + 1;
+  });
+  await db.collection('stats').doc('global').set({
+    totalIssues: ISSUES_DATA.length,
+    byCategory,
+    byStatus,
+    resolved: byStatus.resolved || 0,
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  log('Stats document written.', 'log-ok');
+
+  // ── Seed Monthly Stats ──
+  log('Seeding monthly stats…', 'log-info');
+  const monthlyBatch = db.batch();
+  const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'];
+  const reported = [180,220,195,310,245,284];
+  const resolved = [120,175,160,240,198,197];
+  months.forEach((m, i) => {
+    const ref = db.collection('monthlyStats').doc(m);
+    monthlyBatch.set(ref, { month: m, reported: reported[i], resolved: resolved[i] }, { merge: true });
+  });
+  await monthlyBatch.commit();
+  log('Monthly stats written.', 'log-ok');
+
+  // ── Seed Activity ──
+  log('Seeding activity feed…', 'log-info');
+  const actBatch = db.batch();
+  const existing = await db.collection('activity').limit(1).get();
+  if (existing.empty) {
+    ACTIVITY_FEED.forEach(act => {
+      const ref = db.collection('activity').doc();
+      actBatch.set(ref, {
+        icon: act.icon, color: act.color, text: act.text, type: 'demo',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      actCount++;
+    });
+    await actBatch.commit();
+    log(`Seeded ${actCount} activity entries.`, 'log-ok');
+  } else {
+    log('Activity feed already has data, skipping.', '');
+  }
+
+  // ── Update stats display ──
+  document.getElementById('stats-display').style.display = 'grid';
+  document.getElementById('s-issues').textContent = ISSUES_DATA.length;
+  document.getElementById('s-users').textContent  = userCount;
+  document.getElementById('s-acts').textContent   = actCount;
+
+  document.getElementById('seed-btn').disabled = false;
+  log('✅ Seed complete! Open index.html to see your real data.', 'log-ok');
+}
+
+async function clearData() {
+  if (!window.FIREBASE_CONFIGURED) {
+    alert('Firebase not configured!');
+    return;
+  }
+  if (!confirm('⚠️ This will DELETE all issues, stats, activity, and votes. Are you sure?')) return;
+
+  document.getElementById('clear-btn').disabled = true;
+  log('Clearing Firestore collections…', 'log-info');
+
+  const db    = window.db;
+  const colls = ['issues','stats','monthlyStats','activity','votes'];
+
+  for (const name of colls) {
+    const snap = await db.collection(name).get();
+    const batchSize = 500;
+    let i = 0;
+    while (i < snap.docs.length) {
+      const batch = db.batch();
+      snap.docs.slice(i, i + batchSize).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      i += batchSize;
+    }
+    log(`Cleared collection: ${name} (${snap.docs.length} docs)`, 'log-err');
+  }
+
+  log('All data cleared. Re-seed when ready.', 'log-ok');
+  document.getElementById('clear-btn').disabled = false;
+}
+</script>
+</body>
+</html>

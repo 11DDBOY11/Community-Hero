@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Hero — Hyperlocal Problem Solver</title>
+  <meta name="description" content="AI-powered platform for citizens to report, verify, track, and resolve local infrastructure issues. Powered by Firebase." />
+  <meta name="theme-color" content="#08091a" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+
+  <style>
+    /* ── Leaflet popup dark theme ── */
+    .leaflet-popup-content-wrapper {
+      background: rgba(10,14,32,0.97) !important;
+      border: 1px solid rgba(108,99,255,0.25) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.7) !important;
+      color: #f1f3f9 !important;
+    }
+    .leaflet-popup-tip { background: rgba(10,14,32,0.97) !important; }
+    .leaflet-popup-close-button { color: #a0aec0 !important; }
+    .leaflet-control-zoom a {
+      background: rgba(10,14,32,0.9) !important;
+      border-color: rgba(255,255,255,0.1) !important;
+      color: #f1f3f9 !important;
+    }
+    .custom-marker { background: transparent !important; border: none !important; }
+
+    /* ── Dashboard stat grid ── */
+    #dashboard-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 1100px) { #dashboard-stats { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 600px)  { #dashboard-stats { grid-template-columns: 1fr; } }
+
+    /* ── Wizard map ── */
+    #wizard-map { height: 220px; border-radius: 12px; overflow: hidden; margin-top: 12px; }
+
+    /* ── Badge grid ── */
+    #badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; }
+
+    /* ── Section spacing ── */
+    .section > .container { padding-top: 40px; padding-bottom: 60px; }
+
+    /* ── Firebase status banner ── */
+    #firebase-banner {
+      position: fixed;
+      top: 72px;
+      left: 0; right: 0;
+      z-index: 49;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: transform 0.3s ease;
+    }
+    #firebase-banner.configured {
+      background: rgba(0,212,170,0.12);
+      border-bottom: 1px solid rgba(0,212,170,0.25);
+      color: #00d4aa;
+    }
+    #firebase-banner.demo {
+      background: rgba(255,212,59,0.12);
+      border-bottom: 1px solid rgba(255,212,59,0.25);
+      color: #ffd43b;
+    }
+    #firebase-banner.hidden { transform: translateY(-100%); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     FIREBASE STATUS BANNER
+══════════════════════════════════════════ -->
+<div id="firebase-banner" class="demo">
+  ⚠️ Demo Mode — Data is not saved. Add your Firebase config to <code>js/firebase-config.js</code> to enable real-time persistence.
+  <button onclick="document.getElementById('firebase-banner').classList.add('hidden')"
+    style="margin-left:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:1rem">✕</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     NAVIGATION
+══════════════════════════════════════════ -->
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <a href="#" class="nav-logo" onclick="AppModule.navigate('home');return false;">
+      <div class="logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      Community<span class="gradient-text">Hero</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><button class="nav-link active" data-nav="home"         onclick="AppModule.navigate('home')">🏠 Home</button></li>
+      <li><button class="nav-link"         data-nav="feed"         onclick="AppModule.navigate('feed')">📋 Issues</button></li>
+      <li><button class="nav-link"         data-nav="map"          onclick="AppModule.navigate('map')">🗺️ Map</button></li>
+      <li><button class="nav-link"         data-nav="dashboard"    onclick="AppModule.navigate('dashboard')">📊 Dashboard</button></li>
+      <li><button class="nav-link"         data-nav="gamification" onclick="AppModule.navigate('gamification')">🏆 Leaderboard</button></li>
+      <li><button class="nav-link"         data-nav="community"    onclick="AppModule.navigate('community')">🌍 Community</button></li>
+    </ul>
+
+    <div class="nav-actions">
+      <!-- Firebase connection indicator -->
+      <div id="db-status" title="Database status" style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--txt-muted)">
+        <span id="db-dot" style="width:8px;height:8px;border-radius:50%;background:var(--clr-amber);flex-shrink:0"></span>
+        <span id="db-label">Demo</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.2);border-radius:20px;font-size:0.8rem;">
+        <span style="color:var(--clr-amber)">⭐</span>
+        <span id="nav-xp" style="font-weight:600;color:var(--clr-primary-light)">0</span>
+        <span style="color:var(--txt-muted)">XP</span>
+        <span id="nav-level" style="font-size:0.72rem;color:var(--clr-accent);font-weight:700">Lvl 1</span>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="AppModule.openReportWizard()" id="nav-report-btn">
+        + Report
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     APP
+══════════════════════════════════════════ -->
+<main id="app">
+
+<!-- ──────────── HOME ──────────── -->
+<section id="section-home" class="section active">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="hero">
+    <div class="container hero-content">
+      <div class="hero-tag reveal">
+        <span class="live-dot"></span> Live · Real-time data
+      </div>
+      <h1 class="reveal reveal-delay-1">
+        Your Community.<br/>
+        <span class="animated-gradient">Your Voice. Real Impact.</span>
+      </h1>
+      <p class="lead reveal reveal-delay-2">
+        AI-powered, Firebase-backed platform to report, verify, track, and resolve local infrastructure issues.
+        Every report saved in real time — nothing is lost when you refresh.
+      </p>
+      <div class="hero-cta reveal reveal-delay-3">
+        <button class="btn btn-primary btn-xl" onclick="AppModule.openReportWizard()" id="hero-report-btn">📸 Report an Issue</button>
+        <button class="btn btn-outline btn-xl" onclick="AppModule.navigate('map')"     id="hero-map-btn">🗺️ Live Map</button>
+      </div>
+      <div class="hero-stats reveal reveal-delay-4">
+        <div class="hero-stat">
+          <div class="hero-stat-val count-up" data-target="2847" id="hero-total">0</div>
+          <div class="hero-stat-lbl">Issues Reported</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val count-up" data-target="2103" id="hero-resolved">0</div>
+          <div class="hero-stat-lbl">Resolved ✓</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val count-up" data-target="8934" id="hero-citizens">0</div>
+          <div class="hero-stat-lbl">Active Citizens</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">4.2d</div>
+          <div class="hero-stat-lbl">Avg Resolution</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container" style="padding-top:0;padding-bottom:60px">
+    <div class="section-header reveal">
+      <div class="overline">🔄 Simple Process</div>
+      <h2>How Community Hero Works</h2>
+      <p>Every step is real — photos go to Firebase Storage, reports to Firestore, live everywhere</p>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:60px">
+      <div class="card card-hover reveal reveal-delay-1" style="text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:12px">📸</div>
+        <h4 style="margin-bottom:8px">1. Capture</h4>
+        <p style="font-size:0.85rem">Photo/video uploaded to Firebase Storage and stored permanently</p>
+      </div>
+      <div class="card card-hover reveal reveal-delay-2" style="text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:12px">🤖</div>
+        <h4 style="margin-bottom:8px">2. AI Categorize</h4>
+        <p style="font-size:0.85rem">Multimodal AI detects issue type and priority before you submit</p>
+      </div>
+      <div class="card card-hover reveal reveal-delay-3" style="text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:12px">✅</div>
+        <h4 style="margin-bottom:8px">3. Community Verifies</h4>
+        <p style="font-size:0.85rem">Real upvotes and verifications from real citizens — saved to Firestore</p>
+      </div>
+      <div class="card card-hover reveal reveal-delay-4" style="text-align:center">
+        <div style="font-size:2.5rem;margin-bottom:12px">🎉</div>
+        <h4 style="margin-bottom:8px">4. Get Resolved</h4>
+        <p style="font-size:0.85rem">Status updates tracked in real time — dashboard reflects live data</p>
+      </div>
+    </div>
+
+    <div class="section-header reveal">
+      <div class="overline">🔥 Latest Reports</div>
+      <h2>Live From Your Community</h2>
+      <p id="home-preview-subtitle">Loading real-time issues…</p>
+    </div>
+
+    <div class="issues-grid" id="home-issues-preview" style="margin-bottom:40px">
+      <!-- Skeleton -->
+      <div class="skeleton-card"><div class="skeleton-img shimmer"></div><div class="skeleton-line md shimmer"></div><div class="skeleton-line sm shimmer"></div></div>
+      <div class="skeleton-card"><div class="skeleton-img shimmer"></div><div class="skeleton-line md shimmer"></div><div class="skeleton-line sm shimmer"></div></div>
+      <div class="skeleton-card"><div class="skeleton-img shimmer"></div><div class="skeleton-line md shimmer"></div><div class="skeleton-line sm shimmer"></div></div>
+    </div>
+
+    <div style="text-align:center">
+      <button class="btn btn-outline btn-lg" onclick="AppModule.navigate('feed')" id="see-all-btn">📋 See All Issues →</button>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-header reveal" style="margin-top:60px">
+      <div class="overline">⚡ Features</div>
+      <h2>Built for Real Impact</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card reveal reveal-delay-1"><div style="font-size:1.8rem;margin-bottom:12px">🔥</div><h4 style="margin-bottom:8px">Firebase Firestore</h4><p style="font-size:0.85rem">All issues, users, votes, and comments persist in real-time Firestore. Refresh the page — everything is still there.</p></div>
+      <div class="card reveal reveal-delay-2"><div style="font-size:1.8rem;margin-bottom:12px">📦</div><h4 style="margin-bottom:8px">Firebase Storage</h4><p style="font-size:0.85rem">Photos and videos uploaded directly to Firebase CDN Storage with progress tracking. Real URLs, not base64.</p></div>
+      <div class="card reveal reveal-delay-3"><div style="font-size:1.8rem;margin-bottom:12px">⚡</div><h4 style="margin-bottom:8px">Real-Time Sync</h4><p style="font-size:0.85rem">Report an issue in one browser tab — see it appear in another instantly via Firestore onSnapshot listeners.</p></div>
+      <div class="card reveal reveal-delay-1"><div style="font-size:1.8rem;margin-bottom:12px">🤖</div><h4 style="margin-bottom:8px">AI Categorization</h4><p style="font-size:0.85rem">Multimodal AI (text + image) detects issue type, tags, and priority with confidence scoring before submission.</p></div>
+      <div class="card reveal reveal-delay-2"><div style="font-size:1.8rem;margin-bottom:12px">🗺️</div><h4 style="margin-bottom:8px">Geo-Location Map</h4><p style="font-size:0.85rem">Issues pinned on a live Leaflet map. Click pins to view real Firestore data. Drop location in the wizard.</p></div>
+      <div class="card reveal reveal-delay-3"><div style="font-size:1.8rem;margin-bottom:12px">🏆</div><h4 style="margin-bottom:8px">Real Leaderboard</h4><p style="font-size:0.85rem">XP and badges stored per anonymous session. Leaderboard is a live Firestore query ordered by XP desc.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────── ISSUES FEED ──────────── -->
+<section id="section-feed" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="overline">📋 Browse</div>
+      <h2>Community Issue Feed</h2>
+      <p>Real issues from Firestore — filter, search, upvote, and verify</p>
+    </div>
+    <div class="filter-bar">
+      <div class="search-input-wrap">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="feed-search" class="search-input" placeholder="Search issues, locations…" />
+      </div>
+      <select id="filter-cat" class="filter-select">
+        <option value="all">All Categories</option>
+        <option value="pothole">🕳️ Pothole</option>
+        <option value="water">💧 Water Leakage</option>
+        <option value="light">💡 Streetlight</option>
+        <option value="waste">🗑️ Waste</option>
+        <option value="road">🚧 Road Damage</option>
+        <option value="other">📌 Other</option>
+      </select>
+      <select id="filter-status" class="filter-select">
+        <option value="all">All Statuses</option>
+        <option value="reported">Reported</option>
+        <option value="verified">Verified</option>
+        <option value="in-progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <select id="filter-priority" class="filter-select">
+        <option value="all">All Priorities</option>
+        <option value="critical">🔴 Critical</option>
+        <option value="high">🟠 High</option>
+        <option value="medium">🟡 Medium</option>
+        <option value="low">🟢 Low</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="AppModule.openReportWizard()" id="feed-report-btn">+ Report New</button>
+    </div>
+    <div class="issues-grid" id="issues-grid"></div>
+  </div>
+</section>
+
+<!-- ──────────── MAP ──────────── -->
+<section id="section-map" class="section">
+  <div class="container" style="padding-top:24px;padding-bottom:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="margin-bottom:4px">Live Issue Map</h2>
+        <p style="font-size:0.85rem">Real-time pins from Firestore · Click marker to view details</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="tab-btn active" data-map-filter="all">All</button>
+        <button class="tab-btn" data-map-filter="pothole" style="color:#ff6b6b">🕳️</button>
+        <button class="tab-btn" data-map-filter="water"   style="color:#4dabf7">💧</button>
+        <button class="tab-btn" data-map-filter="light"   style="color:#ffd43b">💡</button>
+        <button class="tab-btn" data-map-filter="waste"   style="color:#51cf66">🗑️</button>
+        <button class="tab-btn" data-map-filter="road"    style="color:#ff922b">🚧</button>
+        <button class="btn btn-primary btn-sm" onclick="AppModule.openReportWizard()" id="map-report-btn">📍 Report Here</button>
+      </div>
+    </div>
+    <div id="map-container" style="position:relative">
+      <div id="leaflet-map"></div>
+      <div class="map-legend">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--txt-secondary);margin-bottom:8px;letter-spacing:0.06em;text-transform:uppercase">Legend</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div>Pothole</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4dabf7"></div>Water</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd43b"></div>Streetlight</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#51cf66"></div>Waste</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff922b"></div>Road</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#cc5de8"></div>Other</div>
+      </div>
+      <div style="position:absolute;top:16px;left:16px;z-index:10;background:rgba(8,9,26,0.9);backdrop-filter:blur(12px);border:1px solid var(--clr-border);border-radius:12px;padding:12px 16px">
+        <div style="font-size:0.75rem;color:var(--txt-muted);margin-bottom:4px">Active Issues</div>
+        <div id="map-issue-count" style="font-family:var(--font-head);font-size:1.8rem;font-weight:800;color:var(--clr-warn)">—</div>
+        <div style="font-size:0.72rem;color:var(--txt-muted)">📍 Live Firestore</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────── DASHBOARD ──────────── -->
+<section id="section-dashboard" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="overline">📊 Analytics</div>
+      <h2>Impact Dashboard</h2>
+      <p>Live metrics from Firestore — stats update in real time as citizens report and resolve issues</p>
+    </div>
+    <div id="dashboard-stats"></div>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📈 Monthly Trend — Reported vs Resolved</div>
+          <span class="badge badge-verified"><span class="live-dot" style="width:6px;height:6px"></span> Live</span>
+        </div>
+        <canvas id="trend-chart" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🥧 Issues by Category (Real Data)</div></div>
+        <canvas id="category-chart" class="chart-canvas"></canvas>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">⏱️ Avg Resolution Time (days)</div></div>
+        <canvas id="resolution-chart" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🌡️ Activity Heatmap (Day × Hour)</div></div>
+        <div id="heatmap-container"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">🤖 AI Predictive Insights</div>
+        <span class="badge badge-in-progress">Powered by AI</span>
+      </div>
+      <div id="predictions-list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────── GAMIFICATION ──────────── -->
+<section id="section-gamification" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="overline">🏆 Gamification</div>
+      <h2>Citizen Leaderboard</h2>
+      <p>XP and badges persist across sessions via Firebase. Leaderboard is a live Firestore query.</p>
+    </div>
+    <div class="grid-2" style="align-items:start;gap:32px">
+      <div>
+        <div id="profile-card" style="margin-bottom:24px"></div>
+        <div class="card" style="margin-bottom:24px">
+          <h4 style="margin-bottom:16px">⚡ Weekly Challenges</h4>
+          <div id="challenges-list"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h4>🏅 Top Citizens</h4>
+            <span style="font-size:0.78rem;color:var(--clr-accent)">Live Firestore</span>
+          </div>
+          <div id="leaderboard-list"></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:40px">
+      <div class="section-header" style="margin-bottom:24px">
+        <div class="overline">🎖️ Achievements</div>
+        <h2>Badges</h2>
+        <p>Unlock badges by taking real community action — stored in your Firestore profile</p>
+      </div>
+      <div id="badges-grid"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────── COMMUNITY ──────────── -->
+<section id="section-community" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="overline">🌍 Community</div>
+      <h2>Live Activity Feed</h2>
+      <p>Real-time stream of community actions from Firestore — watch it update as people report and verify issues</p>
+    </div>
+    <div class="grid-2" style="align-items:start;gap:32px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <h4>⚡ Real-Time Activity</h4>
+          <span class="live-dot"></span>
+          <span style="font-size:0.78rem;color:var(--txt-muted)">Firestore onSnapshot</span>
+        </div>
+        <div id="activity-feed">
+          <div style="color:var(--txt-muted);font-size:0.85rem">Loading…</div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:20px">
+          <h4 style="margin-bottom:16px">🌟 Community Impact</h4>
+          <div class="grid-2" style="gap:16px">
+            <div style="text-align:center;padding:16px;background:rgba(108,99,255,0.08);border-radius:12px;border:1px solid rgba(108,99,255,0.15)"><div id="stat-rate" style="font-size:2rem;font-weight:800;color:var(--clr-primary-light)">—</div><div style="font-size:0.8rem;color:var(--txt-muted)">Resolution Rate</div></div>
+            <div style="text-align:center;padding:16px;background:rgba(0,212,170,0.08);border-radius:12px;border:1px solid rgba(0,212,170,0.15)"><div id="stat-total" style="font-size:2rem;font-weight:800;color:var(--clr-accent)">—</div><div style="font-size:0.8rem;color:var(--txt-muted)">Total Reports</div></div>
+            <div style="text-align:center;padding:16px;background:rgba(255,212,59,0.08);border-radius:12px;border:1px solid rgba(255,212,59,0.15)"><div id="stat-resolved" style="font-size:2rem;font-weight:800;color:var(--clr-amber)">—</div><div style="font-size:0.8rem;color:var(--txt-muted)">Resolved</div></div>
+            <div style="text-align:center;padding:16px;background:rgba(81,207,102,0.08);border-radius:12px;border:1px solid rgba(81,207,102,0.15)"><div id="stat-inprog" style="font-size:2rem;font-weight:800;color:var(--clr-success)">—</div><div style="font-size:0.8rem;color:var(--txt-muted)">In Progress</div></div>
+          </div>
+        </div>
+        <div class="card" style="background:linear-gradient(135deg,rgba(108,99,255,0.15),rgba(0,212,170,0.08));border-color:rgba(108,99,255,0.25);text-align:center;padding:32px">
+          <div style="font-size:3rem;margin-bottom:12px">🚀</div>
+          <h3 style="margin-bottom:8px">Be a Community Hero</h3>
+          <p style="margin-bottom:20px;font-size:0.9rem">Your reports are saved in real Firestore — they create lasting accountability.</p>
+          <button class="btn btn-primary btn-lg" onclick="AppModule.openReportWizard()" id="community-report-btn">📸 Report Your First Issue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ══════════════════════════════════════════
+     REPORT WIZARD MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="wizard-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📸 Report a Community Issue</div>
+      <button class="modal-close" onclick="AppModule.closeReportWizard()" id="wizard-close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Steps indicator -->
+      <div class="wizard-steps">
+        <div class="wizard-step-item active">
+          <div class="wizard-step-wrapper">
+            <div class="wizard-step-circle">1</div>
+            <div class="wizard-step-label">Capture & Describe</div>
+          </div>
+          <div class="wizard-step-line"></div>
+        </div>
+        <div class="wizard-step-item">
+          <div class="wizard-step-wrapper">
+            <div class="wizard-step-circle">2</div>
+            <div class="wizard-step-label">Location</div>
+          </div>
+          <div class="wizard-step-line"></div>
+        </div>
+        <div class="wizard-step-item">
+          <div class="wizard-step-wrapper">
+            <div class="wizard-step-circle">3</div>
+            <div class="wizard-step-label">Review & Submit</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 1 -->
+      <div class="wizard-pane active" id="wizard-pane-1">
+        <div class="form-group">
+          <label class="form-label">📸 Photo / Video Evidence</label>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" accept="image/*,video/*" multiple />
+            <div class="upload-icon">📁</div>
+            <div style="font-weight:600;margin-bottom:4px">Drop files here or click to upload</div>
+            <div class="form-hint">Uploaded to Firebase Storage · JPG, PNG, MP4, WebM · Max 50 MB</div>
+          </div>
+          <div id="upload-previews"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-outline btn-sm" onclick="AppModule.openCamera()" id="open-camera-btn">📷 Open Camera</button>
+        </div>
+        <div id="camera-container"></div>
+        <div id="ai-result-box"></div>
+
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">📝 Issue Title <span style="color:var(--clr-warn)">*</span></label>
+          <input type="text" id="report-title" class="form-input" placeholder="e.g. Large pothole causing accidents near school" />
+          <div class="form-hint">Descriptive title (min 10 characters)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📄 Description <span style="color:var(--clr-warn)">*</span></label>
+          <textarea id="report-desc" class="form-textarea" placeholder="Describe the issue — location, severity, duration, community impact…"></textarea>
+        </div>
+        <div class="grid-2" style="gap:16px">
+          <div class="form-group">
+            <label class="form-label">🏷️ Category <small style="color:var(--clr-accent)">(AI auto-detected)</small></label>
+            <select id="report-category" class="form-select">
+              <option value="">Auto detect…</option>
+              <option value="pothole">🕳️ Pothole</option>
+              <option value="water">💧 Water Leakage</option>
+              <option value="light">💡 Streetlight</option>
+              <option value="waste">🗑️ Waste / Garbage</option>
+              <option value="road">🚧 Road Damage</option>
+              <option value="other">📌 Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">⚠️ Priority <small style="color:var(--clr-accent)">(AI suggested)</small></label>
+            <select id="report-priority" class="form-select">
+              <option value="medium">🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+              <option value="high">🟠 High</option>
+              <option value="critical">🔴 Critical</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="wizard-pane" id="wizard-pane-2">
+        <div class="form-group">
+          <label class="form-label">📍 Issue Location <span style="color:var(--clr-warn)">*</span></label>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="report-address" class="form-input" placeholder="Street address or landmark…" style="flex:1" />
+            <button class="btn btn-outline btn-sm" onclick="AppModule.detectLocation()" id="detect-location-btn">📍 My Location</button>
+          </div>
+          <div class="form-hint">Or click the map to drop a pin</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Latitude</label>
+            <input type="text" id="report-lat" class="form-input" placeholder="Auto-filled" readonly />
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Longitude</label>
+            <input type="text" id="report-lng" class="form-input" placeholder="Auto-filled" readonly />
+          </div>
+        </div>
+        <div id="wizard-map"></div>
+        <div class="form-hint" style="margin-top:8px">💡 Click the map to set precise coordinates</div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="wizard-pane" id="wizard-pane-3">
+        <div style="text-align:center;padding:24px 0 16px">
+          <div style="font-size:4rem;margin-bottom:12px">🚀</div>
+          <h3 style="margin-bottom:8px">Ready to Submit!</h3>
+          <p style="font-size:0.9rem">Your report, photos, and location will be saved to Firebase in real time.</p>
+        </div>
+
+        <div class="card" style="background:rgba(108,99,255,0.06);border-color:rgba(108,99,255,0.2);margin-bottom:16px">
+          <h4 style="margin-bottom:12px;font-size:0.9rem;color:var(--txt-muted);text-transform:uppercase;letter-spacing:0.06em">Report Summary</h4>
+          <div style="font-size:0.9rem;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;gap:8px"><span style="color:var(--txt-muted);min-width:80px">Title:</span><span id="review-title" style="color:var(--txt-primary);font-weight:600">—</span></div>
+            <div style="display:flex;gap:8px"><span style="color:var(--txt-muted);min-width:80px">Category:</span><span id="review-cat">—</span></div>
+            <div style="display:flex;gap:8px"><span style="color:var(--txt-muted);min-width:80px">Priority:</span><span id="review-pri">—</span></div>
+            <div style="display:flex;gap:8px"><span style="color:var(--txt-muted);min-width:80px">Location:</span><span id="review-loc" style="color:var(--txt-primary)">—</span></div>
+          </div>
+        </div>
+
+        <!-- Upload progress (shown during submit) -->
+        <div id="upload-progress-box" style="display:none;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:6px">
+            <span style="color:var(--txt-muted)">Uploading to Firebase Storage</span>
+            <span id="upload-progress-text" style="color:var(--clr-accent)">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="upload-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="card" style="background:rgba(81,207,102,0.05);border-color:rgba(81,207,102,0.2)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span>🏆</span><span style="font-weight:700">You'll earn XP for this report!</span>
+          </div>
+          <div style="display:flex;gap:16px;font-size:0.85rem;color:var(--txt-secondary)">
+            <span>+100 XP <span style="color:var(--txt-muted)">Report</span></span>
+            <span>+30 XP <span style="color:var(--txt-muted)">Photo</span></span>
+            <span>+20 XP <span style="color:var(--txt-muted)">Location</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="wizard-prev" onclick="AppModule.wizardPrev()" style="display:none">← Back</button>
+      <button class="btn btn-primary" id="wizard-next" onclick="AppModule.wizardNext()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ISSUE DETAIL MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="issue-detail-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">📋 Issue Details</div>
+      <button class="modal-close" onclick="AppModule.closeIssueDetail()" id="detail-close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="issue-detail-body"></div>
+  </div>
+</div>
+
+<!-- ── FAB ── -->
+<button class="fab" onclick="AppModule.openReportWizard()" id="fab-btn" aria-label="Report Issue">
+  <span style="font-size:1.2rem">📸</span> Report Issue
+</button>
+
+<!-- ── Toast Container ── -->
+<div id="toast-container"></div>
+
+<!-- ── Confetti Canvas ── -->
+<canvas id="confetti-canvas" style="display:none"></canvas>
+
+<!-- ══════════════════════════════════════════
+     SCRIPTS — ORDER MATTERS
+══════════════════════════════════════════ -->
+
+<!-- Firebase SDK (compat v10) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+<!-- Leaflet + Chart.js -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- App modules -->
+<script src="js/data.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/realtime.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/gamification.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/map.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// ── Post-boot UI updates ──
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Update Firebase status banner + nav indicator
+  setTimeout(() => {
+    const configured = window.FIREBASE_CONFIGURED;
+    const banner = document.getElementById('firebase-banner');
+    const dot    = document.getElementById('db-dot');
+    const lbl    = document.getElementById('db-label');
+
+    if (configured) {
+      if (banner) {
+        banner.className = 'configured';
+        banner.innerHTML = '🔥 Firebase Connected — All data is saved in real time to Firestore + Storage. <button onclick="this.parentElement.classList.add(\'hidden\')" style="margin-left:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:1rem">✕</button>';
+      }
+      if (dot) dot.style.background = '#00d4aa';
+      if (lbl) lbl.textContent = 'Live';
+    }
+
+    // Hide banner after 8 seconds
+    setTimeout(() => banner?.classList.add('hidden'), 8000);
+  }, 1000);
+
+  // Update community stats from live Firestore
+  RT.subscribeToStats(stats => {
+    const total    = stats.totalIssues || 0;
+    const resolved = stats.byStatus?.resolved || 0;
+    const inProg   = stats.byStatus?.['in-progress'] || 0;
+    const rate     = total > 0 ? ((resolved / total) * 100).toFixed(1) + '%' : '—';
+
+    const el = id => document.getElementById(id);
+    if (el('stat-rate'))    el('stat-rate').textContent    = rate;
+    if (el('stat-total'))   el('stat-total').textContent   = total || '—';
+    if (el('stat-resolved'))el('stat-resolved').textContent= resolved || '—';
+    if (el('stat-inprog'))  el('stat-inprog').textContent  = inProg || '—';
+
+    // Update hero counters with real data
+    if (total > 0)    { const el = document.getElementById('hero-total');    if (el) el.textContent = total.toLocaleString(); }
+    if (resolved > 0) { const el = document.getElementById('hero-resolved'); if (el) el.textContent = resolved.toLocaleString(); }
+
+    // Map issue count
+    const mc = document.getElementById('map-issue-count');
+    if (mc) mc.textContent = total || '—';
+
+    // Update home subtitle
+    const sub = document.getElementById('home-preview-subtitle');
+    if (sub && total > 0) sub.textContent = `${total} issues reported · ${resolved} resolved in your community`;
+  });
+});
+</script>
+
+</body>
+</html>

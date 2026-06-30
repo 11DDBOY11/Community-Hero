@@ -1,0 +1,298 @@
+/* ============================================
+   COMMUNITY HERO — ANIMATIONS
+   animations.css
+   ============================================ */
+
+/* ─── Entrance Animations ─── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ─── Hero Text Gradient Animation ─── */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient {
+  background: linear-gradient(270deg, #6c63ff, #00d4aa, #ff6b6b, #6c63ff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 5s ease infinite;
+}
+
+/* ─── Staggered Reveal ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-5 { transition-delay: 0.5s; }
+
+/* ─── Number Counter ─── */
+.count-up {
+  display: inline-block;
+}
+
+/* ─── Shimmer Loading ─── */
+.shimmer {
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Skeleton Cards ─── */
+.skeleton-card {
+  background: var(--clr-bg-card);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  padding: 0 0 var(--sp-4);
+}
+
+.skeleton-img {
+  width: 100%;
+  height: 180px;
+}
+
+.skeleton-line {
+  height: 12px;
+  margin: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line.sm  { width: 60%; }
+.skeleton-line.md  { width: 80%; }
+.skeleton-line.full { width: calc(100% - 2rem); }
+
+/* ─── Bounce (for FAB, notifications) ─── */
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  25%      { transform: translateY(-8px); }
+  75%      { transform: translateY(-4px); }
+}
+
+/* ─── Shake (for validation errors) ─── */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-6px); }
+  80%      { transform: translateX(6px); }
+}
+
+.shake { animation: shake 0.5s ease; }
+
+/* ─── Badge Unlock Pop ─── */
+@keyframes badgePop {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  80%  { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.badge-pop {
+  animation: badgePop 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+/* ─── Glow Pulse (for active elements) ─── */
+@keyframes glowPulse {
+  0%,100% { box-shadow: 0 0 10px var(--clr-primary-glow); }
+  50%      { box-shadow: 0 0 25px var(--clr-primary-glow), 0 0 50px rgba(108,99,255,0.15); }
+}
+
+.glow-pulse { animation: glowPulse 2.5s ease-in-out infinite; }
+
+/* ─── Ripple Effect ─── */
+.ripple-container { position: relative; overflow: hidden; }
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  transform: scale(0);
+  animation: rippleEffect 0.6s linear;
+  pointer-events: none;
+}
+
+@keyframes rippleEffect {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* ─── Rotating Orb (hero bg decoration) ─── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+
+.orb-1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(108,99,255,0.15), transparent 70%);
+  top: -100px;
+  left: -100px;
+  animation-delay: 0s;
+}
+
+.orb-2 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(0,212,170,0.1), transparent 70%);
+  bottom: -80px;
+  right: -80px;
+  animation-delay: -4s;
+}
+
+@keyframes orbFloat {
+  0%,100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(30px, -20px) scale(1.05); }
+  66%      { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+/* ─── Particle Dot (bg texture) ─── */
+@keyframes particleFall {
+  0%   { transform: translateY(-20px); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.5; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+/* ─── Map Marker Bounce ─── */
+@keyframes markerDrop {
+  0%   { transform: translateY(-30px) scale(0.8); opacity: 0; }
+  60%  { transform: translateY(5px) scale(1.1); opacity: 1; }
+  80%  { transform: translateY(-5px) scale(0.97); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ─── Success Checkmark ─── */
+@keyframes checkDraw {
+  0%   { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ─── XP Bar Fill ─── */
+@keyframes xpFill {
+  from { width: 0; }
+}
+
+/* ─── Typing Indicator ─── */
+@keyframes typingDot {
+  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+  30%          { transform: translateY(-6px); opacity: 1; }
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.1s; }
+.typing-dot:nth-child(3) { animation-delay: 0.2s; }
+
+/* ─── Flip Card ─── */
+.flip-card {
+  perspective: 1000px;
+}
+
+.flip-card-inner {
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.flip-card:hover .flip-card-inner { transform: rotateY(180deg); }
+
+.flip-card-front, .flip-card-back {
+  backface-visibility: hidden;
+}
+
+.flip-card-back { transform: rotateY(180deg); }
+
+/* ─── Scan Line Effect (for AI processing) ─── */
+@keyframes scanLine {
+  0%   { top: -5%; }
+  100% { top: 105%; }
+}
+
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.scan-overlay::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--clr-accent), transparent);
+  animation: scanLine 1.5s ease-in-out infinite;
+  box-shadow: 0 0 15px var(--clr-accent-glow);
+}
+
+/* ─── Stat Number Odometer ─── */
+.odometer {
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Chart entry animation ─── */
+@keyframes chartGrow {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); }
+}
