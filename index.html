@@ -627,6 +627,46 @@
   <span style="font-size:1.2rem">📸</span> Report Issue
 </button>
 
+<!-- ── Username Onboarding Modal ── -->
+<div class="modal-overlay" id="username-modal" style="z-index:9999">
+  <div class="modal" style="max-width:440px;text-align:center;padding:0">
+    <div style="background:linear-gradient(135deg,rgba(108,99,255,0.18),rgba(0,212,170,0.10));padding:32px 32px 0;border-radius:20px 20px 0 0">
+      <div style="font-size:3.5rem;margin-bottom:12px">🦸</div>
+      <h2 style="font-size:1.5rem;margin-bottom:8px">Choose Your Hero Name</h2>
+      <p style="color:var(--txt-muted);font-size:0.88rem;margin-bottom:0;padding-bottom:24px">
+        This name appears on the leaderboard and your reported issues. You can't change it later from this screen, so choose wisely!
+      </p>
+    </div>
+    <div style="padding:24px 32px 32px">
+      <div style="position:relative;margin-bottom:8px">
+        <input
+          class="form-input"
+          id="username-input"
+          type="text"
+          placeholder="e.g. CivicWarrior_99"
+          maxlength="24"
+          autocomplete="off"
+          style="padding-left:42px;font-size:1rem;font-weight:600;letter-spacing:0.02em"
+          oninput="HeroName.validate()"
+          onkeydown="if(event.key==='Enter') HeroName.submit()"
+        >
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:1.1rem;pointer-events:none">🦸</span>
+      </div>
+      <div id="username-hint" style="font-size:0.78rem;color:var(--txt-muted);text-align:left;margin-bottom:20px;min-height:18px">
+        3–24 characters, letters, numbers, underscores only.
+      </div>
+      <button class="btn btn-primary" id="username-submit-btn" style="width:100%;font-size:1rem;padding:14px" onclick="HeroName.submit()" disabled>
+        ⚡ Join as Hero
+      </button>
+      <div style="margin-top:16px">
+        <button onclick="HeroName.skip()" style="background:none;border:none;color:var(--txt-muted);font-size:0.8rem;cursor:pointer;text-decoration:underline">
+          Skip for now (you'll be "Community Hero")
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast Container ── -->
 <div id="toast-container"></div>
 
@@ -658,6 +698,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/map.js"></script>
 <script src="js/camera.js"></script>
+<script src="js/hero-name.js"></script>
 <script src="js/app.js"></script>
 
 <script>

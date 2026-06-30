@@ -59,7 +59,10 @@ const AppModule = (() => {
     if (!window.auth) {
       // Demo mode — use a fake uid
       state.currentUid = 'demo_user';
-      Gamification.setUser({ id: 'demo_user', ...window.AppData.CURRENT_USER });
+      const demoProfile = { id: 'demo_user', ...window.AppData.CURRENT_USER };
+      Gamification.setUser(demoProfile);
+      // Check if user needs to pick a name (demo mode)
+      window.HeroName?.maybeShowModal('demo_user', demoProfile);
       _initAfterAuth();
       return;
     }
@@ -86,6 +89,9 @@ const AppModule = (() => {
       RT.subscribeToUser(firebaseUser.uid, updatedProfile => {
         Gamification.setUser(updatedProfile);
       });
+
+      // Check if user needs to pick a hero name (first visit)
+      window.HeroName?.maybeShowModal(firebaseUser.uid, profile);
 
       _initAfterAuth();
     });
